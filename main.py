@@ -22,7 +22,7 @@ def run():
 
     while True:
         data = mon.read_data()
-        print(data)
+        print(data, flush=True)
         time.sleep(10)
 
 run()

@@ -1,5 +1,6 @@
 #!/bin/python3
 
+import sys
 from dataclasses import dataclass
 from decouple import config
 import json
@@ -113,13 +114,8 @@ class Co2MonitorSender:
 
 
 def run():
-    try:
-        monitor = co2.CO2monitor()
-    except Exception as e:
-        print_monitor_access_error(e)
-        return
+    monitor = connect_to_monitor()
     log_co2_monitor_info(monitor)
-
     sender = create_sender_from_environment()
     sender.send_co2_sensor_configuration()
     sender.send_temperature_sensor_configuration()
@@ -130,21 +126,29 @@ def run():
         wait_before_next_update()
 
 
-def print_monitor_access_error(e: Exception):
-    print(e)
+def connect_to_monitor() -> co2.CO2monitor:
+    try:
+        return co2.CO2monitor()
+    except Exception:
+        print_monitor_access_error()
+        raise
+
+
+def print_monitor_access_error():
     print("Could not reach co2meter via usb. Aborting")
 
     devices = hid.enumerate()
     print(f"Found {len(devices)} HID devices:")
     for i, device in enumerate(devices):
         print(f"  Device {i}: {device}")
+    sys.stdout.flush()
 
 
 def log_co2_monitor_info(monitor: co2.CO2monitor):
     print(monitor.info)
 
 
-def create_sender_from_environment():
+def create_sender_from_environment() -> Co2MonitorSender:
     hostname = config("MQTT_BROKER_HOSTNAME", default="localhost")
     port = config("MQTT_BROKER_PORT", default=1883, cast=int)
     auth = get_mqtt_auth_from_environment()
@@ -153,7 +157,7 @@ def create_sender_from_environment():
     return Co2MonitorSender(broker, ha_object)
 
 
-def get_mqtt_auth_from_environment():
+def get_mqtt_auth_from_environment() -> dict:
     username = config("MQTT_BROKER_USERNAME", default=None)
     password = config("MQTT_BROKER_PASSWORD", default=None)
     auth = dict()
@@ -164,7 +168,7 @@ def get_mqtt_auth_from_environment():
     return auth
 
 
-def read_status(monitor: co2.CO2monitor):
+def read_status(monitor: co2.CO2monitor) -> Status:
     (_, co2_in_ppm, temperature_in_celsius) = monitor.read_data()
     return Status(co2_in_ppm, temperature_in_celsius)
 

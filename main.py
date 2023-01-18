@@ -19,7 +19,9 @@ def send_via_mqtt(topic, payload):
     hostname = config("MQTT_BROKER_HOSTNAME", default="localhost")
     port = config("MQTT_BROKER_PORT", default = 1883, cast = int)
     
-    print(f"Sending via {hostname}:{port} (authentication = {auth}) in topic '{topic}': {payload}")
+
+    authentication_info = f"user: {username}, password: {'*' * len(password)}"
+    print(f"Sending via {hostname}:{port} ({authentication_info}) in topic '{topic}': {payload}")
     publish.single(hostname = hostname,
                    port = port,
                    auth = auth,
@@ -69,12 +71,15 @@ def run():
     
     while True:
         data = mon.read_data()
-        print(data, flush=True)
+        print(data)
         
         (_, co2_in_ppm, temperature) = data
-        payload = {"co2_in_ppm": co2_in_ppm, "temperature": temperature}
+        payload = {"co2_in_ppm": co2_in_ppm, "temperature": round(temperature, 1)}
         send_via_mqtt(topic = state_topic, payload = json.dumps(payload))
-        time.sleep(10)
+        
+        wait_duration = 10
+        print(f"Waiting for {wait_duration} seconds..", flush=True)
+        time.sleep(wait_duration)
 
 run()
 print()

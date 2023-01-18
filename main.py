@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 import paho.mqtt.publish as publish
 
-def send_via_mqtt(topic, payload):
+def send_via_mqtt(topic, payload, retain = False):
     username = config("MQTT_BROKER_USERNAME", default = None)
     password = config("MQTT_BROKER_PASSWORD", default = None)
     auth = dict()
@@ -26,6 +26,7 @@ def send_via_mqtt(topic, payload):
                    port = port,
                    auth = auth,
                    qos = 0,
+                   retain = retain,
                    topic = topic,
                    payload = payload)
 
@@ -57,7 +58,8 @@ def run():
             "unit_of_measurement": "ppm",
             "value_template": "{{value_json.co2_in_ppm}}"
             }
-    send_via_mqtt(topic = co2_config_topic, payload = json.dumps(co2_config_payload))
+    send_via_mqtt(topic = co2_config_topic, payload = json.dumps(co2_config_payload),
+                  retain = True)
     
     temperature_config_payload = {
             "device_class": "temperature",
@@ -67,7 +69,7 @@ def run():
             "value_template": "{{value_json.temperature}}"
             }
     send_via_mqtt(topic = temperature_config_topic,
-                  payload = json.dumps(temperature_config_payload))
+                  payload = json.dumps(temperature_config_payload), retain = True)
     
     while True:
         data = mon.read_data()

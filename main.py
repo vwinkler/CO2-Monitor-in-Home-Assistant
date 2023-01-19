@@ -1,116 +1,11 @@
 #!/bin/python3
 
 import sys
-from dataclasses import dataclass
 from decouple import config
-import json
 import co2meter as co2
 import hid
 import time
-import paho.mqtt.publish as publish
-
-
-class MqttBroker:
-    def __init__(self, hostname, port, auth):
-        self.hostname = hostname
-        self.port = port
-        self.auth = auth
-
-    def send(self, topic, payload, retain=False):
-        print(self.make_sending_log_line(topic, payload))
-        publish.single(hostname=self.hostname,
-                       port=self.port,
-                       auth=self.auth,
-                       qos=0,
-                       retain=retain,
-                       topic=topic,
-                       payload=payload)
-
-    def make_sending_log_line(self, topic, payload):
-        auth_info = self.make_auth_log_string()
-        result = f"Sending via {self.hostname}:{self.port} ({auth_info})\n"
-        result += f"  in topic '{topic}':\n"
-        result += f"  {payload}"
-        return result
-
-    def make_auth_log_string(self):
-        username = self.make_username_log_string()
-        password = self.make_censored_password_log_string()
-        return f"user: {username}, password: {password}"
-
-    def make_censored_password_log_string(self):
-        if "password" in self.auth:
-            return "*" * len(self.auth["password"])
-        else:
-            return "undefined"
-
-    def make_username_log_string(self):
-        if "username" in self.auth:
-            return self.auth["username"]
-        else:
-            return "undefined"
-
-
-class HomeAssistantObject:
-    def __init__(self, object_id: str):
-        self.object_id = object_id
-
-    def get_co2_sensor_config_topic(self):
-        return f"homeassistant/sensor/{self.object_id}_co2/config"
-
-    def get_temperature_sensor_config_topic(self):
-        return f"homeassistant/sensor/{self.object_id}_temperature/config"
-
-    def get_object_state_topic(self):
-        return f"homeassistant/sensor/{self.object_id}/state"
-
-    def get_co2_sensor_config_payload(self):
-        return {
-            "device_class": "carbon_dioxide",
-            "name": "CO2",
-            "state_topic": self.get_object_state_topic(),
-            "unit_of_measurement": "ppm",
-            "value_template": "{{value_json.co2_in_ppm}}"
-        }
-
-    def get_temperature_sensor_config_payload(self):
-        return {
-            "device_class": "temperature",
-            "name": "Temperature",
-            "state_topic": self.get_object_state_topic(),
-            "unit_of_measurement": "°C",
-            "value_template": "{{value_json.temperature}}"
-        }
-
-
-@dataclass(frozen=True)
-class Status:
-    co2_in_ppm: int
-    temperature_in_celsius: float
-
-
-class Co2MonitorSender:
-    def __init__(self, broker: MqttBroker, ha_object: HomeAssistantObject):
-        self.broker = broker
-        self.ha_object = ha_object
-
-    def send_co2_sensor_configuration(self):
-        payload = json.dumps(self.ha_object.get_co2_sensor_config_payload())
-        self.broker.send(topic=self.ha_object.get_co2_sensor_config_topic(),
-                         payload=payload, retain=True)
-
-    def send_temperature_sensor_configuration(self):
-        payload = json.dumps(
-                self.ha_object.get_temperature_sensor_config_payload())
-        self.broker.send(
-                topic=self.ha_object.get_temperature_sensor_config_topic(),
-                payload=payload, retain=True)
-
-    def send_status(self, status: Status):
-        payload = {"co2_in_ppm": status.co2_in_ppm,
-                   "temperature": round(status.temperature_in_celsius, 1)}
-        self.broker.send(topic=self.ha_object.get_object_state_topic(),
-                         payload=json.dumps(payload))
+from src import MqttBroker, HomeAssistantObject, Co2MonitorSender, Status
 
 
 def run():

@@ -74,5 +74,6 @@ def wait_before_next_update():
     time.sleep(wait_duration)
 
 
-run()
-print()
+if __name__ == "__main__":
+    run()
+    print()
